@@ -1,0 +1,7 @@
+.claude/
+node_modules/
+data/*.db
+data/*.db-wal
+data/*.db-shm
+data/cutebaby.json
+*.log

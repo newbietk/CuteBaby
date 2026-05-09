@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>CuteBaby - 宝宝日记</title>
+  <link rel="stylesheet" href="/css/app.css">
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header class="app-header">
+      <h1>CuteBaby</h1>
+      <span class="header-subtitle">宝宝日记</span>
+    </header>
+
+    <!-- Tab Content -->
+    <main class="tab-content" id="tabContent">
+      <!-- Home Tab -->
+      <div v-show="currentTab === 'home'" class="tab-panel">
+        <!-- Summary Cards -->
+        <div class="summary-grid">
+          <div class="summary-card feeding">
+            <div class="card-icon">🍼</div>
+            <div class="card-info">
+              <div class="card-value">{{ stats.feeding.count }}次 · {{ stats.feeding.totalAmount }}ml</div>
+              <div class="card-label">喂奶</div>
+            </div>
+          </div>
+          <div class="summary-card sleep">
+            <div class="card-icon">💤</div>
+            <div class="card-info">
+              <div class="card-value">{{ stats.sleep.count }}次 · {{ formatHours(stats.sleep.totalMinutes) }}</div>
+              <div class="card-label">睡觉</div>
+            </div>
+          </div>
+          <div class="summary-card urination">
+            <div class="card-icon">💧</div>
+            <div class="card-info">
+              <div class="card-value">{{ stats.urination.count }}次</div>
+              <div class="card-label">尿尿</div>
+            </div>
+          </div>
+          <div class="summary-card bowel">
+            <div class="card-icon">💩</div>
+            <div class="card-info">
+              <div class="card-value">{{ stats.bowel.count }}次</div>
+              <div class="card-label">拉屎</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Quick Record Buttons -->
+        <div class="quick-actions">
+          <button class="fab-btn feeding" @click="openModal('feeding')">
+            <span class="fab-icon">🍼</span>
+            <span class="fab-label">喂奶</span>
+          </button>
+          <button class="fab-btn urination" @click="openModal('urination')">
+            <span class="fab-icon">💧</span>
+            <span class="fab-label">尿尿</span>
+          </button>
+          <button class="fab-btn bowel" @click="openModal('bowel')">
+            <span class="fab-icon">💩</span>
+            <span class="fab-label">拉屎</span>
+          </button>
+          <button class="fab-btn sleep" @click="openModal('sleep')">
+            <span class="fab-icon">💤</span>
+            <span class="fab-label">睡觉</span>
+          </button>
+        </div>
+
+        <!-- Today's Timeline -->
+        <div class="section-title">今日记录</div>
+        <div v-if="activities.length === 0" class="empty-state">
+          <div class="empty-icon">📝</div>
+          <div class="empty-text">今天还没有记录哦~</div>
+        </div>
+        <div v-else class="timeline">
+          <div v-for="a in activities" :key="a.id" class="timeline-item" :class="a.type">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-header">
+                <span class="timeline-type">{{ typeLabel(a.type) }}</span>
+                <span class="timeline-time">{{ formatTime(a.start_time) }}</span>
+              </div>
+              <div class="timeline-detail" v-if="a.type === 'feeding' && a.amount">
+                {{ a.amount }}ml
+              </div>
+              <div class="timeline-detail" v-if="a.type === 'sleep' && a.end_time">
+                {{ sleepDuration(a.start_time, a.end_time) }}
+              </div>
+              <div class="timeline-note" v-if="a.note">{{ a.note }}</div>
+              <div class="timeline-actions">
+                <button class="btn-edit" @click="openModal(a.type, a)">编辑</button>
+                <button class="btn-delete" @click="deleteRecord(a.id)">删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- History Tab -->
+      <div v-show="currentTab === 'history'" class="tab-panel">
+        <!-- Date Navigator -->
+        <div class="date-nav">
+          <button class="date-arrow" @click="prevDay">&lt;</button>
+          <input type="date" class="date-picker" v-model="selectedDate" @change="loadData">
+          <button class="date-arrow" @click="nextDay">&gt;</button>
+          <button class="btn-today" @click="goToday">今天</button>
+        </div>
+
+        <!-- Type Filters -->
+        <div class="filter-chips">
+          <button class="chip" :class="{ active: typeFilter === 'all' }" @click="typeFilter = 'all'; loadActivities()">全部</button>
+          <button class="chip" :class="{ active: typeFilter === 'feeding' }" @click="typeFilter = 'feeding'; loadActivities()">🍼 喂奶</button>
+          <button class="chip" :class="{ active: typeFilter === 'urination' }" @click="typeFilter = 'urination'; loadActivities()">💧 尿尿</button>
+          <button class="chip" :class="{ active: typeFilter === 'bowel' }" @click="typeFilter = 'bowel'; loadActivities()">💩 拉屎</button>
+          <button class="chip" :class="{ active: typeFilter === 'sleep' }" @click="typeFilter = 'sleep'; loadActivities()">💤 睡觉</button>
+        </div>
+
+        <!-- History List -->
+        <div v-if="activities.length === 0" class="empty-state">
+          <div class="empty-icon">📝</div>
+          <div class="empty-text">该日期没有记录</div>
+        </div>
+        <div v-else class="timeline">
+          <div v-for="a in activities" :key="a.id" class="timeline-item" :class="a.type">
+            <div class="timeline-dot"></div>
+            <div class="timeline-content">
+              <div class="timeline-header">
+                <span class="timeline-type">{{ typeLabel(a.type) }}</span>
+                <span class="timeline-time">{{ formatTime(a.start_time) }}</span>
+              </div>
+              <div class="timeline-detail" v-if="a.type === 'feeding' && a.amount">
+                {{ a.amount }}ml
+              </div>
+              <div class="timeline-detail" v-if="a.type === 'sleep' && a.end_time">
+                {{ sleepDuration(a.start_time, a.end_time) }}
+              </div>
+              <div class="timeline-note" v-if="a.note">{{ a.note }}</div>
+              <div class="timeline-actions">
+                <button class="btn-edit" @click="openModal(a.type, a)">编辑</button>
+                <button class="btn-delete" @click="deleteRecord(a.id)">删除</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Tab -->
+      <div v-show="currentTab === 'stats'" class="tab-panel">
+        <!-- Range Selector -->
+        <div class="range-selector">
+          <button class="range-btn" :class="{ active: statsRange === 'week' }" @click="setStatsRange('week')">本周</button>
+          <button class="range-btn" :class="{ active: statsRange === 'month' }" @click="setStatsRange('month')">本月</button>
+          <div class="custom-range">
+            <input type="date" v-model="rangeStart" @change="loadRangeStats">
+            <span>至</span>
+            <input type="date" v-model="rangeEnd" @change="loadRangeStats">
+          </div>
+        </div>
+
+        <!-- Range Summary Cards -->
+        <div class="summary-grid" v-if="rangeSummary">
+          <div class="summary-card feeding">
+            <div class="card-icon">🍼</div>
+            <div class="card-info">
+              <div class="card-value">{{ rangeSummary.feeding.count }}次 · {{ rangeSummary.feeding.totalAmount }}ml</div>
+              <div class="card-label">喂奶</div>
+            </div>
+          </div>
+          <div class="summary-card sleep">
+            <div class="card-icon">💤</div>
+            <div class="card-info">
+              <div class="card-value">{{ rangeSummary.sleep.count }}次 · {{ formatHours(rangeSummary.sleep.totalMinutes) }}</div>
+              <div class="card-label">睡觉</div>
+            </div>
+          </div>
+          <div class="summary-card urination">
+            <div class="card-icon">💧</div>
+            <div class="card-info">
+              <div class="card-value">{{ rangeSummary.urination.count }}次</div>
+              <div class="card-label">尿尿</div>
+            </div>
+          </div>
+          <div class="summary-card bowel">
+            <div class="card-icon">💩</div>
+            <div class="card-info">
+              <div class="card-value">{{ rangeSummary.bowel.count }}次</div>
+              <div class="card-label">拉屎</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Daily Breakdown -->
+        <div class="section-title">每日明细</div>
+        <div v-if="rangeData.length === 0" class="empty-state">
+          <div class="empty-icon">📊</div>
+          <div class="empty-text">该时间段没有记录</div>
+        </div>
+        <div v-else class="daily-breakdown">
+          <div v-for="day in rangeData" :key="day.date" class="day-row">
+            <div class="day-date">{{ formatDateCN(day.date) }}</div>
+            <div class="day-bars">
+              <div class="bar-group">
+                <span class="bar-label">🍼</span>
+                <div class="bar-track"><div class="bar-fill feeding" :style="{ width: barWidth(day.feeding.totalAmount, maxAmount) }"></div></div>
+                <span class="bar-num">{{ day.feeding.count }}次 {{ day.feeding.totalAmount }}ml</span>
+              </div>
+              <div class="bar-group">
+                <span class="bar-label">💤</span>
+                <div class="bar-track"><div class="bar-fill sleep" :style="{ width: barWidth(day.sleep.totalMinutes, maxSleep) }"></div></div>
+                <span class="bar-num">{{ day.sleep.count }}次 {{ formatHours(day.sleep.totalMinutes) }}</span>
+              </div>
+              <div class="bar-group">
+                <span class="bar-label">💧</span>
+                <div class="bar-track"><div class="bar-fill urination" :style="{ width: barWidth(day.urination.count, maxUrination) }"></div></div>
+                <span class="bar-num">{{ day.urination.count }}次</span>
+              </div>
+              <div class="bar-group">
+                <span class="bar-label">💩</span>
+                <div class="bar-track"><div class="bar-fill bowel" :style="{ width: barWidth(day.bowel.count, maxBowel) }"></div></div>
+                <span class="bar-num">{{ day.bowel.count }}次</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Record Modal -->
+    <div class="modal-overlay" v-if="showModal" @click.self="closeModal">
+      <div class="modal-sheet">
+        <div class="modal-header">
+          <button class="modal-cancel" @click="closeModal">取消</button>
+          <h3>{{ editingId ? '编辑' : '添加' }}{{ typeLabel(modalType) }}记录</h3>
+          <button class="modal-save" @click="saveRecord">保存</button>
+        </div>
+        <div class="modal-body">
+          <!-- Time Input -->
+          <div class="form-group">
+            <label>{{ modalType === 'sleep' ? '开始时间' : '时间' }}</label>
+            <input type="datetime-local" v-model="form.start_time" class="form-input">
+          </div>
+
+          <!-- End Time (sleep only) -->
+          <div class="form-group" v-if="modalType === 'sleep'">
+            <label>结束时间</label>
+            <input type="datetime-local" v-model="form.end_time" class="form-input">
+          </div>
+
+          <!-- Amount (feeding only) -->
+          <div class="form-group" v-if="modalType === 'feeding'">
+            <label>奶量 (ml)</label>
+            <input type="number" v-model.number="form.amount" class="form-input" placeholder="请输入奶量" min="1" step="1">
+          </div>
+
+          <!-- Note -->
+          <div class="form-group">
+            <label>备注</label>
+            <textarea v-model="form.note" class="form-input form-textarea" rows="3" placeholder="可选备注..."></textarea>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Tab Bar -->
+    <nav class="tab-bar">
+      <button class="tab-item" :class="{ active: currentTab === 'home' }" @click="currentTab = 'home'">
+        <span class="tab-icon">🏠</span>
+        <span class="tab-label">首页</span>
+      </button>
+      <button class="tab-item" :class="{ active: currentTab === 'history' }" @click="currentTab = 'history'">
+        <span class="tab-icon">📋</span>
+        <span class="tab-label">记录</span>
+      </button>
+      <button class="tab-item" :class="{ active: currentTab === 'stats' }" @click="currentTab = 'stats'">
+        <span class="tab-icon">📊</span>
+        <span class="tab-label">统计</span>
+      </button>
+    </nav>
+  </div>
+
+  <script src="/js/api.js"></script>
+  <script src="/js/app.js"></script>
+</body>
+</html>
