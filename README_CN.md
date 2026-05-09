@@ -59,6 +59,66 @@ npm start
 
 `GET /api/activities` 支持查询参数: `date`、`start`、`end`、`type`、`page`、`limit`
 
+## 云服务器部署
+
+### 部署到云服务器
+
+```bash
+# 1. SSH 登录服务器
+ssh user@你的服务器IP
+
+# 2. 安装 Node.js（如果未安装）
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# 3. 克隆并安装项目
+git clone https://github.com/newbietk/CuteBaby.git
+cd CuteBaby
+npm install
+```
+
+### 生产环境运行
+
+**方式 A: 直接运行（测试用）**
+```bash
+PORT=80 npm start
+# 浏览器打开 http://<你的服务器IP>
+```
+
+**方式 B: PM2（推荐生产环境使用）**
+```bash
+npm install -g pm2
+pm2 start server.js --name cutebaby
+pm2 save
+pm2 startup        # 服务器重启后自动启动
+```
+
+### 防火墙设置
+
+确保云服务器安全组/防火墙已开放对应端口：
+
+| 端口 | 用途 |
+|------|------|
+| 80 | HTTP 访问 |
+| 443 | HTTPS（微信小程序必须） |
+
+### 环境变量
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `PORT` | `3000` | 服务端口 |
+| `HOST` | `0.0.0.0` | 绑定地址 |
+
+### 访问
+
+启动后在浏览器打开 `http://<你的服务器IP>:<端口>`，手机浏览器可直接访问，UI 已适配移动端。
+
+### 健康检查
+
+```
+GET /api/health → { "status": "ok", "uptime": 123.45 }
+```
+
 ## 微信小程序接入
 
 1. 部署服务到云服务器并配置 HTTPS

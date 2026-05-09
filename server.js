@@ -3,6 +3,7 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Body parser
 app.use(express.json());
@@ -42,6 +43,11 @@ async function start() {
   db.rangeStats = result.rangeStats;
   db.seedIfEmpty = () => {};
 
+  // Health check
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', uptime: process.uptime() });
+  });
+
   // Mount API routes after DB is ready
   const activitiesRouter = require('./src/routes/activities');
   const statsRouter = require('./src/routes/stats');
@@ -59,9 +65,19 @@ async function start() {
 
   serverReady = true;
 
-  app.listen(PORT, () => {
-    console.log(`CuteBaby server running at http://localhost:${PORT}`);
+  const server = app.listen(PORT, HOST, () => {
+    console.log(`CuteBaby server running on http://0.0.0.0:${PORT}`);
+    if (HOST === '0.0.0.0') {
+      console.log(`Access locally:  http://localhost:${PORT}`);
+      console.log(`Access via LAN:   http://<your-ip>:${PORT}`);
+    }
     console.log(`Press Ctrl+C to stop`);
+  });
+
+  // Graceful shutdown
+  process.on('SIGTERM', () => {
+    console.log('SIGTERM received, closing server...');
+    server.close(() => process.exit(0));
   });
 }
 

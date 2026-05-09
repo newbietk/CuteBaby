@@ -59,6 +59,66 @@ All endpoints return JSON. Ready for WeChat Mini Program integration.
 
 `GET /api/activities` supports query parameters: `date`, `start`, `end`, `type`, `page`, `limit`
 
+## Cloud Deployment
+
+### Deploy to a VPS
+
+```bash
+# 1. SSH into your server
+ssh user@your-server-ip
+
+# 2. Install Node.js (if not already installed)
+curl -fsSL https://deb.nodesource.com/setup_24.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# 3. Clone and set up the project
+git clone https://github.com/newbietk/CuteBaby.git
+cd CuteBaby
+npm install
+```
+
+### Run in production
+
+**Option A: Direct run (for testing)**
+```bash
+PORT=80 npm start
+# Then open http://<your-server-ip> in a browser
+```
+
+**Option B: PM2 (recommended for production)**
+```bash
+npm install -g pm2
+pm2 start server.js --name cutebaby
+pm2 save
+pm2 startup        # Auto-restart on server reboot
+```
+
+### Firewall
+
+Make sure the port is open on your cloud firewall/security group:
+
+| Port | Purpose |
+|------|---------|
+| 80 | HTTP (if using PORT=80) |
+| 443 | HTTPS (required for WeChat Mini Program) |
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PORT` | `3000` | Server port |
+| `HOST` | `0.0.0.0` | Bind address |
+
+### Access
+
+After starting, open `http://<your-server-ip>:<port>` in any browser. The mobile-first UI works directly on phones.
+
+### Health Check
+
+```
+GET /api/health → { "status": "ok", "uptime": 123.45 }
+```
+
 ## WeChat Mini Program Integration
 
 1. Deploy the server to a cloud VPS with HTTPS
